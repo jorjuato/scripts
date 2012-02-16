@@ -1,0 +1,10 @@
+#!/bin/bash
+#
+# Script to install patched version of fxkb
+
+apt-get install subversion pkg-config libglib2.0-dev libgtk2.0-dev --yes
+svn co https://fbxkb.svn.sourceforge.net/svnroot/fbxkb fbxkb
+cd fbxkb/trunk
+./configure
+make 
+apt-get autoremove subversion pkg-config libglib2.0-dev libgtk2.0-dev

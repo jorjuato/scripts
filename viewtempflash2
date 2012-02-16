@@ -1,0 +1,17 @@
+#!/bin/sh
+#  By MecagoEnAdobe
+#
+  
+LINES=`lsof -c plugin-co | grep '.*/tmp/Flash'| awk '{print $2,$4}' | tr ' ' '#' `
+for LINE in $LINES; do
+	PROC=`echo $LINE | cut -d '#' -f1`
+	FD=`echo $LINE | cut -d '#' -f2 | sed 's/[a-Z].*//'`
+	#echo "Checking process: $PROC and file_descriptor: $FD"
+	if [ -e /proc/$PROC/fd/$FD ]; then
+        echo "Opening video file /proc/$PROC/fd/$FD"
+		vlc /proc/$PROC/fd/$FD 2>/dev/null &
+	else
+		echo "file '/proc/$PROC/fd/$FD' do not exist ... "
+	fi
+done
+

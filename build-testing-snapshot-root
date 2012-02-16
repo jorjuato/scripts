@@ -1,0 +1,81 @@
+#!/bin/sh
+# Copyright (C) 2010,2011 Michael Gilbert <michael.s.gilbert@gmail.com>
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+set -e
+
+distribution="$1"
+date="$2"
+arch="$3"
+
+site="snapshot.debian.org"
+path="/archive/debian/$date"
+url="http://$site$path"
+chroot="$PWD/debian-$distribution-snapshot-$date-$arch-chroot"
+iso="$PWD/debian-$distribution-snapshot-$date-$arch-mini.iso"
+
+# test dependencies
+export PATH="/sbin:/usr/sbin:/usr/local/sbin:/bin:/usr/bin:/usr/local/bin"
+test "$(whoami)" != "root" && echo "you need to be root to run this script" && exit 1 || true
+which debootstrap > /dev/null || ( echo "please install the debootstrap package" && false )
+
+# create a new chroot if we don't already have one
+if [ ! -e $chroot/debian-installer ] ; then
+    debootstrap --arch=$arch $distribution $chroot $url
+    echo "deb-src $url $distribution main" >> $chroot/etc/apt/sources.list
+fi
+
+# fetch d-i source and build dependencies
+echo "Acquire::Check-Valid-Until "false";" > $chroot/etc/apt/apt.conf.d/10nocheck
+chroot $chroot apt-get update -y
+chroot $chroot apt-get build-dep debian-installer choose-mirror debian-installer-utils -y
+chroot $chroot apt-get source debian-installer choose-mirror debian-installer-utils
+test -e $chroot/debian-installer && rm -rf $chroot/debian-installer || true
+cp -r $chroot/debian-installer-2* $chroot/debian-installer
+
+# provide snapshot.d.o as the only selectable mirror
+test -e $chroot/choose-mirror && rm -rf $chroot/choose-mirror || true
+cp -r $chroot/choose-mirror-* $chroot/choose-mirror
+masterlist="$chroot/choose-mirror/Mirrors.masterlist"
+mv $masterlist $masterlist.bak
+head -18 $masterlist.bak > $masterlist 
+echo "Site: $site
+Type: Push-Primary
+Archive-architecture: alpha amd64 arm armel hppa hurd-i386 i386 ia64 kfreebsd-amd64 kfreebsd-i386 mips mipsel powerpc s390 sparc
+Archive-http: $path
+Archive-ftp: $path
+Archive-upstream: ftp-master.debian.org
+Country: US United States 
+IPv6: no" >> $masterlist
+export ONLINE=n
+dch -l snapshot -c $chroot/choose-mirror/debian/changelog Snapshot mirrors only
+chroot $chroot make -C /choose-mirror -f debian/rules binary
+mv $chroot/choose-mirror*.udeb $chroot/debian-installer/build/localudebs
+
+# workaround apt's out-of-date check in the target (this is really ugly)
+test -e $chroot/debian-installer-utils && rm -rf $chroot/debian-installer-utils || true
+cp -r $chroot/debian-installer-utils-* $chroot/debian-installer-utils
+sed -i 's|ERRCODE=0|ERRCODE=0 \&\& echo "Acquire::Check-Valid-Until "false";" > /target/etc/apt/apt.conf.d/10nocheck \&\& in-target sh -c "debconf-apt-progress --no-progress --logstderr -- apt-get update -y"|g' $chroot/debian-installer-utils/apt-install
+dch -l snapshot -c $chroot/debian-installer-utils/debian/changelog Workaround out-of-date check
+export DEB_HOST_ARCH_OS="linux"
+chroot $chroot make -C /debian-installer-utils -f debian/rules binary
+mv $chroot/di-utils_*.udeb $chroot/debian-installer/build/localudebs
+
+# build the installation media
+echo "deb $url squeeze main/debian-installer
+deb copy:/debian-installer/build localudebs/" > $chroot/debian-installer/build/sources.list.udeb
+chroot $chroot make -C /debian-installer/build build_netboot
+cp $chroot/debian-installer/build/dest/netboot/mini.iso $iso
+echo "Successfully created: $iso"

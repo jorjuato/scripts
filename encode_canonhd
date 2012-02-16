@@ -1,0 +1,17 @@
+#!/bin/sh
+
+INPUT=$1
+OUTPUT=$2
+BIT_RATE=3000000
+SIZE="hd720" # hd480 ; hd720 ; hd1080
+CRF=22
+
+#Two-pass, select bitrate
+#ffmpeg -i $INPUT -an -pass 1 -vcodec libx264 -vpre slow_firstpass -s $SIZE -b $BIT_RATE -threads 0 $OUTPUT
+#ffmpeg -i $INPUT -acodec libfaac -ab 128k -pass 2 -vcodec libx264 -vpre slow -s $SIZE -b $BIT_RATE -threads 0 $OUTPUT
+
+#One pass, constant rate factor
+#ffmpeg -i $INPUT -acodec libfaac -ab 128k -pass 2 -vcodec libx264 -crf=$CRF -trellis 1 -frameref=2 -bf=2 -8x8dct -psnr -denoise3d
+
+
+ffmpeg -i $INPUT -acodec libfaac -ab 128k -vcodec libx264 -vpre faster -s $SIZE -level 41 -crf $CRF -trellis 1 -bufsize 20000k -maxrate 10000k -g 250 -coder 1 -flags +loop -cmp +chroma -partitions +parti4x4+partp8x8+partb8x8 -flags2 +dct8x8+bpyramid -subq 7 -me_range 16 -keyint_min 25 -sc_threshold 40 -i_qfactor 0.71 -rc_eq "blurCplx^(1-qComp)" -bf 16 -b_strategy 1 -bidir_refine 1 -refs 6 -deblockalpha 0 -deblockbeta 0 -threads 0 $OUTPUT

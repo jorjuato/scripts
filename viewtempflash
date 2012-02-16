@@ -1,0 +1,18 @@
+#!/bin/tcsh
+#  By MecagoEnAdobe
+#
+  
+set line = `lsof | grep 'plugin.*/tmp/Flash'| awk '{print $2,$4}' | tr ' ' '#' `
+echo "LINE:\n$line"
+foreach i ( $line )
+	echo "Source : $i"
+	set proc = `echo $i | cut -d '#' -f1`
+	set fd = `echo $i | cut -d '#' -f2 | sed 's/[a-Z].*//'`
+	echo "Checking process: $proc and file_descriptor: $fd"
+	if ( -e /proc/$proc/fd/$fd ) then
+		vlc_mpd.sh /proc/$proc/fd/$fd
+	else
+		echo "file '/proc/$proc/fd/$fd' do not exist ... "
+	endif
+end
+
