@@ -1,0 +1,30 @@
+diff --git a/lib/mpl_toolkits/mplot3d/axes3d.py b/lib/mpl_toolkits/mplot3d/axes3d.py
+index 4420c93..db8dacd 100644
+--- a/lib/mpl_toolkits/mplot3d/axes3d.py
++++ b/lib/mpl_toolkits/mplot3d/axes3d.py
+@@ -78,6 +78,7 @@ class Axes3D(Axes):
+ 
+         self.M = None
+ 
++        self._axis3don = True
+         self._ready = 1
+         self.mouse_init()
+         self.create_axes()
+@@ -165,11 +166,12 @@ class Axes3D(Axes):
+         for i, (z, patch) in enumerate(zlist):
+             patch.zorder = i
+ 
+-        axes = (self.w_xaxis, self.w_yaxis, self.w_zaxis)
+-        for ax in axes:
+-            ax.draw_pane(renderer)
+-        for ax in axes:
+-            ax.draw(renderer)
++        if self._axis3don :
++            axes = (self.w_xaxis, self.w_yaxis, self.w_zaxis)
++            for ax in axes:
++                ax.draw_pane(renderer)
++            for ax in axes:
++                ax.draw(renderer)
+ 
+         Axes.draw(self, renderer)
+ 
